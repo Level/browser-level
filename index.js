@@ -5,6 +5,7 @@
 const { AbstractLevel } = require('abstract-level')
 const ModuleError = require('module-error')
 const parallel = require('run-parallel-limit')
+const { fromCallback } = require('catering')
 const { Iterator } = require('./iterator')
 const deserialize = require('./util/deserialize')
 const clear = require('./util/clear')
@@ -19,6 +20,7 @@ const kLocation = Symbol('location')
 const kVersion = Symbol('version')
 const kStore = Symbol('store')
 const kOnComplete = Symbol('onComplete')
+const kPromise = Symbol('promise')
 
 class BrowserLevel extends AbstractLevel {
   constructor (location, options, _) {
@@ -267,13 +269,19 @@ BrowserLevel.destroy = function (location, prefix, callback) {
     callback = prefix
     prefix = DEFAULT_PREFIX
   }
+
+  callback = fromCallback(callback, kPromise)
   const request = indexedDB.deleteDatabase(prefix + location)
+
   request.onsuccess = function () {
     callback()
   }
+
   request.onerror = function (err) {
     callback(err)
   }
+
+  return callback[kPromise]
 }
 
 exports.BrowserLevel = BrowserLevel
