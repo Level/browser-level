@@ -5,16 +5,17 @@
   "author": "max ogden",
   "license": "MIT",
   "main": "index.js",
+  "types": "./index.d.ts",
   "scripts": {
-    "test": "standard && hallmark && airtap -p local --coverage test/index.js",
+    "test": "standard && ts-standard *.ts && hallmark && airtap -p local --coverage test/index.js",
     "test-browsers": "standard && airtap --coverage test/index.js",
     "coverage": "nyc report -r lcovonly",
-    "hallmark": "hallmark --fix",
     "dependency-check": "dependency-check --no-dev .",
     "prepublishOnly": "npm run dependency-check"
   },
   "files": [
     "index.js",
+    "index.d.ts",
     "iterator.js",
     "util",
     "CHANGELOG.md",
@@ -27,6 +28,7 @@
     "run-parallel-limit": "^1.1.0"
   },
   "devDependencies": {
+    "@voxpelli/tsconfig": "^3.1.0",
     "airtap": "^4.0.4",
     "airtap-playwright": "^1.0.1",
     "airtap-sauce": "^1.1.0",
@@ -35,6 +37,8 @@
     "nyc": "^15.0.0",
     "standard": "^16.0.4",
     "tape": "^5.5.2",
+    "ts-standard": "^11.0.0",
+    "typescript": "^4.5.5",
     "uuid": "^3.3.2"
   },
   "repository": {

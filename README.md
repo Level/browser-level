@@ -73,16 +73,14 @@ This library is best used with [browserify](http://browserify.org) or similar bu
 
 ### `db = new BrowserLevel(location[, options])`
 
-Returns a new `BrowserLevel` instance. `location` is the string name of the [`IDBDatabase`](https://developer.mozilla.org/en-US/docs/Web/API/IDBDatabase) to be opened, as well as the object store within that database. The database name will be prefixed with `options.prefix`.
-
-#### `options`
+Returns a new `BrowserLevel` instance. The required `location` argument is the string name of the [`IDBDatabase`](https://developer.mozilla.org/en-US/docs/Web/API/IDBDatabase) to be opened, as well as the name of the object store within that database. The name of the `IDBDatabase` will be prefixed with `options.prefix`.
 
 The optional `options` argument may contain:
 
-- `prefix` _(string, default: `'level-js-'`)_: Prefix for `IDBDatabase` name.
-- `version` _(string | number, default: `1`)_: The version to open the database with.
+- `prefix` _(string, default: `'level-js-'`)_: Prefix for the `IDBDatabase` name. Can be set to an empty string. The default is compatible with `level-js`.
+- `version` _(string | number, default: `1`)_: The version to open the `IDBDatabase` with.
 
-See [`IDBFactory#open`](https://developer.mozilla.org/en-US/docs/Web/API/IDBFactory/open) for more details.
+See [`IDBFactory#open`](https://developer.mozilla.org/en-US/docs/Web/API/IDBFactory/open) for more details about name and `version`.
 
 <!-- ## Big Thanks
 
