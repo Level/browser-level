@@ -17,6 +17,8 @@ const kIDB = Symbol('idb')
 const kNamePrefix = Symbol('namePrefix')
 const kLocation = Symbol('location')
 const kVersion = Symbol('version')
+const kStore = Symbol('store')
+const kOnComplete = Symbol('onComplete')
 
 class BrowserLevel extends AbstractLevel {
   constructor (location, options, _) {
@@ -67,201 +69,197 @@ class BrowserLevel extends AbstractLevel {
   get type () {
     return 'browser-level'
   }
-}
 
-// TODO: move to class
+  _open (options, callback) {
+    const req = indexedDB.open(this[kNamePrefix] + this[kLocation], this[kVersion])
 
-BrowserLevel.prototype._open = function (options, callback) {
-  const req = indexedDB.open(this[kNamePrefix] + this[kLocation], this[kVersion])
-
-  req.onerror = function () {
-    callback(req.error || new Error('unknown error'))
-  }
-
-  req.onsuccess = () => {
-    this[kIDB] = req.result
-    callback()
-  }
-
-  req.onupgradeneeded = (ev) => {
-    const db = ev.target.result
-
-    if (!db.objectStoreNames.contains(this[kLocation])) {
-      db.createObjectStore(this[kLocation])
-    }
-  }
-}
-
-// TODO: use symbol
-BrowserLevel.prototype.store = function (mode) {
-  const transaction = this[kIDB].transaction([this[kLocation]], mode)
-  return transaction.objectStore(this[kLocation])
-}
-
-// TODO: use symbol
-BrowserLevel.prototype.await = function (request, callback) {
-  const transaction = request.transaction
-
-  // Take advantage of the fact that a non-canceled request error aborts
-  // the transaction. I.e. no need to listen for "request.onerror".
-  transaction.onabort = function () {
-    callback(transaction.error || new Error('aborted by user'))
-  }
-
-  transaction.oncomplete = function () {
-    callback(null, request.result)
-  }
-}
-
-BrowserLevel.prototype._get = function (key, options, callback) {
-  const store = this.store('readonly')
-  let req
-
-  try {
-    req = store.get(key)
-  } catch (err) {
-    return this.nextTick(callback, err)
-  }
-
-  this.await(req, function (err, value) {
-    if (err) return callback(err)
-
-    if (value === undefined) {
-      return callback(new ModuleError('Entry not found', {
-        code: 'LEVEL_NOT_FOUND'
-      }))
+    req.onerror = function () {
+      callback(req.error || new Error('unknown error'))
     }
 
-    callback(null, deserialize(value))
-  })
-}
-
-BrowserLevel.prototype._getMany = function (keys, options, callback) {
-  const store = this.store('readonly')
-  const tasks = keys.map((key) => (next) => {
-    let request
-
-    try {
-      request = store.get(key)
-    } catch (err) {
-      return next(err)
+    req.onsuccess = () => {
+      this[kIDB] = req.result
+      callback()
     }
 
-    request.onsuccess = () => {
-      const value = request.result
-      next(null, value === undefined ? value : deserialize(value))
+    req.onupgradeneeded = (ev) => {
+      const db = ev.target.result
+
+      if (!db.objectStoreNames.contains(this[kLocation])) {
+        db.createObjectStore(this[kLocation])
+      }
+    }
+  }
+
+  [kStore] (mode) {
+    const transaction = this[kIDB].transaction([this[kLocation]], mode)
+    return transaction.objectStore(this[kLocation])
+  }
+
+  [kOnComplete] (request, callback) {
+    const transaction = request.transaction
+
+    // Take advantage of the fact that a non-canceled request error aborts
+    // the transaction. I.e. no need to listen for "request.onerror".
+    transaction.onabort = function () {
+      callback(transaction.error || new Error('aborted by user'))
     }
 
-    request.onerror = (ev) => {
-      ev.stopPropagation()
-      next(request.error)
+    transaction.oncomplete = function () {
+      callback(null, request.result)
     }
-  })
-
-  parallel(tasks, 16, callback)
-}
-
-BrowserLevel.prototype._del = function (key, options, callback) {
-  const store = this.store('readwrite')
-  let req
-
-  try {
-    req = store.delete(key)
-  } catch (err) {
-    return this.nextTick(callback, err)
   }
 
-  this.await(req, callback)
-}
-
-BrowserLevel.prototype._put = function (key, value, options, callback) {
-  const store = this.store('readwrite')
-  let req
-
-  try {
-    // Will throw a DataError or DataCloneError if the environment
-    // does not support serializing the key or value respectively.
-    req = store.put(value, key)
-  } catch (err) {
-    return this.nextTick(callback, err)
-  }
-
-  this.await(req, callback)
-}
-
-// TODO: implement key and value iterators, and nextv()
-BrowserLevel.prototype._iterator = function (options) {
-  return new Iterator(this, this[kLocation], options)
-}
-
-BrowserLevel.prototype._batch = function (operations, options, callback) {
-  const store = this.store('readwrite')
-  const transaction = store.transaction
-  let index = 0
-  let error
-
-  transaction.onabort = function () {
-    callback(error || transaction.error || new Error('aborted by user'))
-  }
-
-  transaction.oncomplete = function () {
-    callback()
-  }
-
-  // Wait for a request to complete before making the next, saving CPU.
-  function loop () {
-    const op = operations[index++]
-    const key = op.key
-
+  _get (key, options, callback) {
+    const store = this[kStore]('readonly')
     let req
 
     try {
-      req = op.type === 'del' ? store.delete(key) : store.put(op.value, key)
+      req = store.get(key)
     } catch (err) {
-      error = err
-      transaction.abort()
-      return
+      return this.nextTick(callback, err)
     }
 
-    if (index < operations.length) {
-      req.onsuccess = loop
+    this[kOnComplete](req, function (err, value) {
+      if (err) return callback(err)
+
+      if (value === undefined) {
+        return callback(new ModuleError('Entry not found', {
+          code: 'LEVEL_NOT_FOUND'
+        }))
+      }
+
+      callback(null, deserialize(value))
+    })
+  }
+
+  _getMany (keys, options, callback) {
+    const store = this[kStore]('readonly')
+    const tasks = keys.map((key) => (next) => {
+      let request
+
+      try {
+        request = store.get(key)
+      } catch (err) {
+        return next(err)
+      }
+
+      request.onsuccess = () => {
+        const value = request.result
+        next(null, value === undefined ? value : deserialize(value))
+      }
+
+      request.onerror = (ev) => {
+        ev.stopPropagation()
+        next(request.error)
+      }
+    })
+
+    parallel(tasks, 16, callback)
+  }
+
+  _del (key, options, callback) {
+    const store = this[kStore]('readwrite')
+    let req
+
+    try {
+      req = store.delete(key)
+    } catch (err) {
+      return this.nextTick(callback, err)
     }
+
+    this[kOnComplete](req, callback)
   }
 
-  loop()
-}
+  _put (key, value, options, callback) {
+    const store = this[kStore]('readwrite')
+    let req
 
-BrowserLevel.prototype._clear = function (options, callback) {
-  let keyRange
-  let req
+    try {
+      // Will throw a DataError or DataCloneError if the environment
+      // does not support serializing the key or value respectively.
+      req = store.put(value, key)
+    } catch (err) {
+      return this.nextTick(callback, err)
+    }
 
-  try {
-    keyRange = createKeyRange(options)
-  } catch (e) {
-    // The lower key is greater than the upper key.
-    // IndexedDB throws an error, but we'll just do nothing.
-    return this.nextTick(callback)
+    this[kOnComplete](req, callback)
   }
 
-  if (options.limit >= 0) {
-    // IDBObjectStore#delete(range) doesn't have such an option.
-    // Fall back to cursor-based implementation.
-    return clear(this, this[kLocation], keyRange, options, callback)
+  // TODO: implement key and value iterators, and nextv()
+  _iterator (options) {
+    return new Iterator(this, this[kLocation], options)
   }
 
-  try {
-    const store = this.store('readwrite')
-    req = keyRange ? store.delete(keyRange) : store.clear()
-  } catch (err) {
-    return this.nextTick(callback, err)
+  _batch (operations, options, callback) {
+    const store = this[kStore]('readwrite')
+    const transaction = store.transaction
+    let index = 0
+    let error
+
+    transaction.onabort = function () {
+      callback(error || transaction.error || new Error('aborted by user'))
+    }
+
+    transaction.oncomplete = function () {
+      callback()
+    }
+
+    // Wait for a request to complete before making the next, saving CPU.
+    function loop () {
+      const op = operations[index++]
+      const key = op.key
+
+      let req
+
+      try {
+        req = op.type === 'del' ? store.delete(key) : store.put(op.value, key)
+      } catch (err) {
+        error = err
+        transaction.abort()
+        return
+      }
+
+      if (index < operations.length) {
+        req.onsuccess = loop
+      }
+    }
+
+    loop()
   }
 
-  this.await(req, callback)
-}
+  _clear (options, callback) {
+    let keyRange
+    let req
 
-BrowserLevel.prototype._close = function (callback) {
-  this[kIDB].close()
-  this.nextTick(callback)
+    try {
+      keyRange = createKeyRange(options)
+    } catch (e) {
+      // The lower key is greater than the upper key.
+      // IndexedDB throws an error, but we'll just do nothing.
+      return this.nextTick(callback)
+    }
+
+    if (options.limit >= 0) {
+      // IDBObjectStore#delete(range) doesn't have such an option.
+      // Fall back to cursor-based implementation.
+      return clear(this, this[kLocation], keyRange, options, callback)
+    }
+
+    try {
+      const store = this[kStore]('readwrite')
+      req = keyRange ? store.delete(keyRange) : store.clear()
+    } catch (err) {
+      return this.nextTick(callback, err)
+    }
+
+    this[kOnComplete](req, callback)
+  }
+
+  _close (callback) {
+    this[kIDB].close()
+    this.nextTick(callback)
+  }
 }
 
 BrowserLevel.destroy = function (location, prefix, callback) {
