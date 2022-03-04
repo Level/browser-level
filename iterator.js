@@ -3,26 +3,36 @@
 const { AbstractIterator } = require('abstract-level')
 const createKeyRange = require('./util/key-range')
 const deserialize = require('./util/deserialize')
+
 const noop = function () {}
+const kCount = Symbol('count')
+const kCallback = Symbol('callback')
+const kCache = Symbol('cache')
+const kCompleted = Symbol('completed')
+const kAborted = Symbol('aborted')
+const kError = Symbol('error')
+const kKeys = Symbol('keys')
+const kValues = Symbol('values')
+const kOnItem = Symbol('onItem')
+const kOnAbort = Symbol('onAbort')
+const kOnComplete = Symbol('onComplete')
+const kMaybeNext = Symbol('maybeNext')
 
 class Iterator extends AbstractIterator {
   constructor (db, location, options) {
     super(db, options)
 
-    this._limit = options.limit
-    this._count = 0
-    this._callback = null
-    this._cache = []
-    this._completed = false
-    this._aborted = false
-    this._error = null
-    this._transaction = null
+    this[kCount] = 0
+    this[kCallback] = null
+    this[kCache] = []
+    this[kCompleted] = false
+    this[kAborted] = false
+    this[kError] = null
+    this[kKeys] = options.keys
+    this[kValues] = options.values
 
-    this._keys = options.keys
-    this._values = options.values
-
-    if (this._limit === 0) {
-      this._completed = true
+    if (this.limit === 0) {
+      this[kCompleted] = true
       return
     }
 
@@ -33,108 +43,97 @@ class Iterator extends AbstractIterator {
     } catch (e) {
       // The lower key is greater than the upper key.
       // IndexedDB throws an error, but we'll just return 0 results.
-      this._completed = true
+      this[kCompleted] = true
       return
     }
 
-    this.createIterator(location, keyRange, options.reverse)
-  }
-
-  // TODO: use symbol
-  createIterator (location, keyRange, reverse) {
-    const transaction = this.db.db.transaction([location], 'readonly')
+    const transaction = db.db.transaction([location], 'readonly')
     const store = transaction.objectStore(location)
-    const req = store.openCursor(keyRange, reverse ? 'prev' : 'next')
+    const req = store.openCursor(keyRange, options.reverse ? 'prev' : 'next')
 
     req.onsuccess = (ev) => {
       const cursor = ev.target.result
-      if (cursor) this.onItem(cursor)
+      if (cursor) this[kOnItem](cursor)
     }
-
-    this._transaction = transaction
 
     // If an error occurs (on the request), the transaction will abort.
     transaction.onabort = () => {
-      this.onAbort(this._transaction.error || new Error('aborted by user'))
+      this[kOnAbort](transaction.error || new Error('aborted by user'))
     }
 
     transaction.oncomplete = () => {
-      this.onComplete()
+      this[kOnComplete]()
     }
   }
 
-  // TODO: use symbol
-  onItem (cursor) {
-    this._cache.push(cursor.key, cursor.value)
+  [kOnItem] (cursor) {
+    this[kCache].push(cursor.key, cursor.value)
 
-    if (this._limit <= 0 || ++this._count < this._limit) {
+    if (++this[kCount] < this.limit) {
       cursor.continue()
     }
 
-    this.maybeNext()
+    this[kMaybeNext]()
   }
 
-  // TODO: use symbol
-  onAbort (err) {
-    this._aborted = true
-    this._error = err
-    this.maybeNext()
+  [kOnAbort] (err) {
+    this[kAborted] = true
+    this[kError] = err
+    this[kMaybeNext]()
   }
 
-  // TODO: use symbol
-  onComplete () {
-    this._completed = true
-    this.maybeNext()
+  [kOnComplete] () {
+    this[kCompleted] = true
+    this[kMaybeNext]()
   }
 
-  // TODO: use symbol
-  maybeNext () {
-    if (this._callback) {
-      this._next(this._callback)
-      this._callback = null
+  [kMaybeNext] () {
+    if (this[kCallback]) {
+      this._next(this[kCallback])
+      this[kCallback] = null
     }
   }
 
   _next (callback) {
-    if (this._aborted) {
-      const err = this._error
-      this._error = null
+    if (this[kAborted]) {
+      const err = this[kError]
+      this[kError] = null
       this.nextTick(callback, err)
-    } else if (this._cache.length > 0) {
-      let key = this._cache.shift()
-      let value = this._cache.shift()
+    } else if (this[kCache].length > 0) {
+      let key = this[kCache].shift()
+      let value = this[kCache].shift()
 
-      if (this._keys && key !== undefined) {
+      if (this[kKeys] && key !== undefined) {
         key = deserialize(key)
       } else {
         key = undefined
       }
 
-      if (this._values && value !== undefined) {
+      if (this[kValues] && value !== undefined) {
         value = deserialize(value)
       } else {
         value = undefined
       }
 
       this.nextTick(callback, null, key, value)
-    } else if (this._completed) {
+    } else if (this[kCompleted]) {
       this.nextTick(callback)
     } else {
-      this._callback = callback
+      this[kCallback] = callback
     }
   }
 
   _close (callback) {
-    if (this._aborted || this._completed) {
+    if (this[kAborted] || this[kCompleted]) {
       return this.nextTick(callback)
     }
 
     // Don't advance the cursor anymore, and the transaction will complete
     // on its own in the next tick. This approach is much cleaner than calling
     // transaction.abort() with its unpredictable event order.
-    this.onItem = noop
-    this.onAbort = callback
-    this.onComplete = callback
+    this[kOnItem] = noop
+    this[kOnAbort] = callback
+    this[kOnComplete] = callback
   }
 }
 
