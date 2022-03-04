@@ -1,11 +1,11 @@
-# level-js
+# browser-level
 
-> An [`abstract-leveldown`][abstract-leveldown] compliant store on top of [IndexedDB][indexeddb].
+**An [`abstract-level`][abstract-level] database for browsers, backed by [IndexedDB][indexeddb].** The successor to [`level-js`](https://github.com/Level/level-js). If you are upgrading, please see [UPGRADING.md](UPGRADING.md).
 
 [![level badge][level-badge]][awesome]
-[![npm](https://img.shields.io/npm/v/level-js.svg)](https://www.npmjs.com/package/level-js)
-[![Test](https://img.shields.io/github/workflow/status/Level/level-js/Test?label=test)](https://github.com/Level/level-js/actions/workflows/test.yml)
-[![Coverage](https://img.shields.io/codecov/c/github/Level/level-js?label=&logo=codecov&logoColor=fff)](https://codecov.io/gh/Level/level-js)
+[![npm](https://img.shields.io/npm/v/browser-level.svg)](https://www.npmjs.com/package/browser-level)
+[![Test](https://img.shields.io/github/workflow/status/Level/browser-level/Test?label=test)](https://github.com/Level/browser-level/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/Level/browser-level?label=&logo=codecov&logoColor=fff)](https://codecov.io/gh/Level/browser-level)
 [![Standard](https://img.shields.io/badge/standard-informational?logo=javascript&logoColor=fff)](https://standardjs.com)
 [![Common Changelog](https://common-changelog.org/badge.svg)](https://common-changelog.org)
 [![Donate](https://img.shields.io/badge/donate-orange?logo=open-collective&logoColor=fff)](https://opencollective.com/level)
@@ -118,15 +118,15 @@ The optional `options` argument may contain:
 
 See [`IDBFactory#open`](https://developer.mozilla.org/en-US/docs/Web/API/IDBFactory/open) for more details.
 
-## Big Thanks
+<!-- ## Big Thanks
 
 Cross-browser Testing Platform and Open Source ♥ Provided by [Sauce Labs](https://saucelabs.com).
 
-[![Sauce Labs logo](./sauce-labs.svg)](https://saucelabs.com)
+[![Sauce Labs logo](./sauce-labs.svg)](https://saucelabs.com) -->
 
 ## Contributing
 
-[`Level/level-js`](https://github.com/Level/level-js) is an **OPEN Open Source Project**. This means that:
+[`Level/browser-level`](https://github.com/Level/browser-level) is an **OPEN Open Source Project**. This means that:
 
 > Individuals making significant and valuable contributions are given commit-access to the project to contribute as they see fit. This project is more like an open wiki than a standard guarded open source project.
 
@@ -148,7 +148,7 @@ Support us with a monthly donation on [Open Collective](https://opencollective.c
 
 [awesome]: https://github.com/Level/awesome
 
-[abstract-leveldown]: https://github.com/Level/abstract-leveldown
+[abstract-level]: https://github.com/Level/abstract-level
 
 [levelup]: https://github.com/Level/levelup
 

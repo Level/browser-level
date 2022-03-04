@@ -1,7 +1,7 @@
 {
-  "name": "level-js",
-  "version": "6.1.0",
-  "description": "An abstract-leveldown compliant store on top of IndexedDB",
+  "name": "browser-level",
+  "version": "0.0.0",
+  "description": "An abstract-level database for browsers, backed by IndexedDB",
   "author": "max ogden",
   "license": "MIT",
   "main": "index.js",
@@ -42,13 +42,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Level/level-js.git"
+    "url": "https://github.com/Level/browser-level.git"
   },
-  "homepage": "https://github.com/Level/level-js",
+  "homepage": "https://github.com/Level/browser-level",
   "keywords": [
     "level",
     "leveldb",
     "indexeddb",
-    "abstract-leveldown"
+    "abstract-level"
   ]
 }
