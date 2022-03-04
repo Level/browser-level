@@ -1,7 +1,7 @@
 'use strict'
 
 module.exports = function clear (db, location, keyRange, options, callback) {
-  if (options.limit === 0) return db._nextTick(callback)
+  if (options.limit === 0) return db.nextTick(callback)
 
   const transaction = db.db.transaction([location], 'readwrite')
   const store = transaction.objectStore(location)
@@ -16,6 +16,7 @@ module.exports = function clear (db, location, keyRange, options, callback) {
   }
 
   // A key cursor is faster (skips reading values) but not supported by IE
+  // TODO: we no longer support IE. Test others
   const method = store.openKeyCursor ? 'openKeyCursor' : 'openCursor'
   const direction = options.reverse ? 'prev' : 'next'
 

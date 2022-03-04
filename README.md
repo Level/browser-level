@@ -29,62 +29,32 @@
 
 </details>
 
-## Background
-
-Here are the goals of `level-js`:
-
-- Store large amounts of data in modern browsers
-- Pass the full [`abstract-leveldown`][abstract-leveldown] test suite
-- Support string and [`Buffer`][buffer] keys and values
-- Be as fast as possible
-- ~~Sync with [multilevel](https://github.com/juliangruber/multilevel) over ASCII or binary transports.~~
-
-Being `abstract-leveldown` compliant means you can use many of the [Level modules][awesome] on top of this library.
-
-## Example
-
-**If you are upgrading:** please see [UPGRADING.md](UPGRADING.md).
+## Usage
 
 ```js
-const levelup = require('levelup')
-const leveljs = require('level-js')
-const db = levelup(leveljs('bigdata'))
+const { BrowserLevel } = require('browser-level')
+const db = new BrowserLevel('example')
 
-db.put('hello', Buffer.from('world'), function (err) {
-  if (err) throw err
-
-  db.get('hello', function (err, value) {
-    if (err) throw err
-
-    console.log(value.toString()) // 'world'
-  })
-})
-```
-
-With `async/await`:
-
-```js
-const levelup = require('levelup')
-const leveljs = require('level-js')
-const db = levelup(leveljs('bigdata'))
-
-await db.put('hello', Buffer.from('world'))
+await db.put('hello', 'world')
 const value = await db.get('hello')
+
+console.log(value) // 'world'
 ```
 
-## Browser Support
-
-[![Sauce Test Status](https://app.saucelabs.com/browser-matrix/level-js.svg)](https://app.saucelabs.com/u/level-js)
+<!-- ## Browser Support -->
+<!-- [![Sauce Test Status](https://app.saucelabs.com/browser-matrix/level-js.svg)](https://app.saucelabs.com/u/level-js) -->
 
 ## Type Support
 
-Keys and values can be a string or [`Buffer`][buffer]. Any other type will be irreversibly stringified. The only exceptions are `null` and `undefined`. Keys and values of that type are rejected.
+_Outdated._
 
-In order to sort string and Buffer keys the same way, for compatibility with `leveldown` and the larger ecosystem, `level-js` internally converts keys and values to binary before passing them to IndexedDB.
+Keys and values can be a string, Uint8Array or [`Buffer`][buffer]. Any other type will be irreversibly stringified. The only exceptions are `null` and `undefined`. Keys and values of that type are rejected.
 
-If you desire non-destructive encoding (e.g. to store and retrieve numbers as-is), wrap `level-js` with [`encoding-down`][encoding-down]. Alternatively install [`level`][level] which conveniently bundles [`levelup`][levelup], `level-js` and `encoding-down`. Such an approach is also recommended if you want to achieve universal (isomorphic) behavior. For example, you could have [`leveldown`][leveldown] in a backend and `level-js` in the frontend. The `level` package does exactly that.
+In order to sort string and Buffer keys the same way as other databases in the ecosystem, `browser-level` internally converts keys and values to binary before passing them to IndexedDB.
 
-When getting or iterating keys and values, regardless of the type with which they were stored, keys and values will return as a Buffer unless the `asBuffer`, `keyAsBuffer` or `valueAsBuffer` options are set, in which case strings are returned. Setting these options is not needed when `level-js` is wrapped with `encoding-down`, which determines the optimal return type by the chosen encoding.
+~~If you desire non-destructive encoding (e.g. to store and retrieve numbers as-is), wrap `level-js` with [`encoding-down`][encoding-down]. Alternatively install [`level`][level] which conveniently bundles [`levelup`][levelup], `level-js` and `encoding-down`. Such an approach is also recommended if you want to achieve universal (isomorphic) behavior. For example, you could have [`classic-level`][classic-level] in a backend and `level-js` in the frontend. The `level` package does exactly that.~~
+
+~~When getting or iterating keys and values, regardless of the type with which they were stored, keys and values will return as a Buffer unless the `asBuffer`, `keyAsBuffer` or `valueAsBuffer` options are set, in which case strings are returned. Setting these options is not needed when `level-js` is wrapped with `encoding-down`, which determines the optimal return type by the chosen encoding.~~
 
 ```js
 db.get('key', { asBuffer: false })
@@ -96,18 +66,16 @@ db.iterator({ keyAsBuffer: false, valueAsBuffer: false })
 With [npm](https://npmjs.org) do:
 
 ```bash
-npm install level-js
+npm install browser-level
 ```
 
-Not to be confused with [leveljs](https://www.npmjs.com/package/leveljs).
-
-This library is best used with [browserify](http://browserify.org).
+This library is best used with [browserify](http://browserify.org) or similar bundlers.
 
 ## API
 
-### `db = leveljs(location[, options])`
+### `db = new BrowserLevel(location[, options])`
 
-Returns a new `leveljs` instance. `location` is the string name of the [`IDBDatabase`](https://developer.mozilla.org/en-US/docs/Web/API/IDBDatabase) to be opened, as well as the object store within that database. The database name will be prefixed with `options.prefix`.
+Returns a new `BrowserLevel` instance. `location` is the string name of the [`IDBDatabase`](https://developer.mozilla.org/en-US/docs/Web/API/IDBDatabase) to be opened, as well as the object store within that database. The database name will be prefixed with `options.prefix`.
 
 #### `options`
 
@@ -152,7 +120,7 @@ Support us with a monthly donation on [Open Collective](https://opencollective.c
 
 [levelup]: https://github.com/Level/levelup
 
-[leveldown]: https://github.com/Level/leveldown
+[classic-level]: https://github.com/Level/classic-level
 
 [level]: https://github.com/Level/level
 

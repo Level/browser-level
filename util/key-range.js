@@ -2,21 +2,20 @@
 
 'use strict'
 
-const ltgt = require('ltgt')
-const NONE = Symbol('none')
+const kNone = Symbol('none')
 
 module.exports = function createKeyRange (options) {
-  const lower = ltgt.lowerBound(options, NONE)
-  const upper = ltgt.upperBound(options, NONE)
-  const lowerOpen = ltgt.lowerBoundExclusive(options, NONE)
-  const upperOpen = ltgt.upperBoundExclusive(options, NONE)
+  const lower = 'gte' in options ? options.gte : 'gt' in options ? options.gt : kNone
+  const upper = 'lte' in options ? options.lte : 'lt' in options ? options.lt : kNone
+  const lowerExclusive = !('gte' in options)
+  const upperExclusive = !('lte' in options)
 
-  if (lower !== NONE && upper !== NONE) {
-    return IDBKeyRange.bound(lower, upper, lowerOpen, upperOpen)
-  } else if (lower !== NONE) {
-    return IDBKeyRange.lowerBound(lower, lowerOpen)
-  } else if (upper !== NONE) {
-    return IDBKeyRange.upperBound(upper, upperOpen)
+  if (lower !== kNone && upper !== kNone) {
+    return IDBKeyRange.bound(lower, upper, lowerExclusive, upperExclusive)
+  } else if (lower !== kNone) {
+    return IDBKeyRange.lowerBound(lower, lowerExclusive)
+  } else if (upper !== kNone) {
+    return IDBKeyRange.upperBound(upper, upperExclusive)
   } else {
     return null
   }

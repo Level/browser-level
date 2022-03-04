@@ -1,50 +1,47 @@
 'use strict'
 
-const inherits = require('inherits')
-const AbstractIterator = require('abstract-leveldown').AbstractIterator
+const { AbstractIterator } = require('abstract-level')
 const createKeyRange = require('./util/key-range')
 const deserialize = require('./util/deserialize')
 const noop = function () {}
 
-module.exports = Iterator
+class Iterator extends AbstractIterator {
+  constructor (db, location, options) {
+    super(db, options)
 
-function Iterator (db, location, options) {
-  AbstractIterator.call(this, db)
+    this._limit = options.limit
+    this._count = 0
+    this._callback = null
+    this._cache = []
+    this._completed = false
+    this._aborted = false
+    this._error = null
+    this._transaction = null
 
-  this._limit = options.limit
-  this._count = 0
-  this._callback = null
-  this._cache = []
-  this._completed = false
-  this._aborted = false
-  this._error = null
-  this._transaction = null
+    this._keys = options.keys
+    this._values = options.values
 
-  this._keys = options.keys
-  this._values = options.values
-  this._keyAsBuffer = options.keyAsBuffer
-  this._valueAsBuffer = options.valueAsBuffer
+    if (this._limit === 0) {
+      this._completed = true
+      return
+    }
 
-  if (this._limit === 0) {
-    this._completed = true
-    return
+    let keyRange
+
+    try {
+      keyRange = createKeyRange(options)
+    } catch (e) {
+      // The lower key is greater than the upper key.
+      // IndexedDB throws an error, but we'll just return 0 results.
+      this._completed = true
+      return
+    }
+
+    this.createIterator(location, keyRange, options.reverse)
   }
-
-  let keyRange
-
-  try {
-    keyRange = createKeyRange(options)
-  } catch (e) {
-    // The lower key is greater than the upper key.
-    // IndexedDB throws an error, but we'll just return 0 results.
-    this._completed = true
-    return
-  }
-
-  this.createIterator(location, keyRange, options.reverse)
 }
 
-inherits(Iterator, AbstractIterator)
+// TODO: move to class
 
 Iterator.prototype.createIterator = function (location, keyRange, reverse) {
   const transaction = this.db.db.transaction([location], 'readonly')
@@ -98,41 +95,36 @@ Iterator.prototype.maybeNext = function () {
 
 Iterator.prototype._next = function (callback) {
   if (this._aborted) {
-    // The error should be picked up by either next() or end().
     const err = this._error
     this._error = null
-    this._nextTick(callback, err)
+    this.nextTick(callback, err)
   } else if (this._cache.length > 0) {
     let key = this._cache.shift()
     let value = this._cache.shift()
 
     if (this._keys && key !== undefined) {
-      key = this._deserializeKey(key, this._keyAsBuffer)
+      key = deserialize(key)
     } else {
       key = undefined
     }
 
     if (this._values && value !== undefined) {
-      value = this._deserializeValue(value, this._valueAsBuffer)
+      value = deserialize(value)
     } else {
       value = undefined
     }
 
-    this._nextTick(callback, null, key, value)
+    this.nextTick(callback, null, key, value)
   } else if (this._completed) {
-    this._nextTick(callback)
+    this.nextTick(callback)
   } else {
     this._callback = callback
   }
 }
 
-// Exposed for the v4 to v5 upgrade utility
-Iterator.prototype._deserializeKey = deserialize
-Iterator.prototype._deserializeValue = deserialize
-
-Iterator.prototype._end = function (callback) {
+Iterator.prototype._close = function (callback) {
   if (this._aborted || this._completed) {
-    return this._nextTick(callback, this._error)
+    return this.nextTick(callback)
   }
 
   // Don't advance the cursor anymore, and the transaction will complete
@@ -142,3 +134,5 @@ Iterator.prototype._end = function (callback) {
   this.onAbort = callback
   this.onComplete = callback
 }
+
+exports.Iterator = Iterator

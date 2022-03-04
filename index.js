@@ -2,54 +2,77 @@
 
 'use strict'
 
-module.exports = Level
-
-const AbstractLevelDOWN = require('abstract-leveldown').AbstractLevelDOWN
-const inherits = require('inherits')
+const { AbstractLevel } = require('abstract-level')
+const ModuleError = require('module-error')
 const parallel = require('run-parallel-limit')
-const Iterator = require('./iterator')
-const serialize = require('./util/serialize')
+const { Iterator } = require('./iterator')
 const deserialize = require('./util/deserialize')
-const support = require('./util/support')
 const clear = require('./util/clear')
 const createKeyRange = require('./util/key-range')
 
+// Keep as-is for compatibility with existing level-js databases
 const DEFAULT_PREFIX = 'level-js-'
 
-function Level (location, opts) {
-  if (!(this instanceof Level)) return new Level(location, opts)
+const kNamePrefix = Symbol('namePrefix')
+const kLocation = Symbol('location')
+const kVersion = Symbol('version')
 
-  AbstractLevelDOWN.call(this, {
-    bufferKeys: support.bufferKeys(indexedDB),
-    snapshots: true,
-    permanence: true,
-    clear: true,
-    getMany: true
-  })
+class BrowserLevel extends AbstractLevel {
+  constructor (location, options, _) {
+    // To help migrating to abstract-level
+    if (typeof options === 'function' || typeof _ === 'function') {
+      throw new ModuleError('The levelup-style callback argument has been removed', {
+        code: 'LEVEL_LEGACY'
+      })
+    }
 
-  opts = opts || {}
+    const { prefix, version, ...forward } = options || {}
 
-  if (typeof location !== 'string') {
-    throw new Error('constructor requires a location string argument')
+    super({
+      encodings: { view: true },
+      createIfMissing: false,
+      errorIfExists: false,
+      seek: false
+    }, forward)
+
+    if (typeof location !== 'string') {
+      throw new Error('constructor requires a location string argument')
+    }
+
+    // TODO (next major): remove default prefix
+    this[kLocation] = location
+    this[kNamePrefix] = prefix == null ? DEFAULT_PREFIX : prefix
+    this[kVersion] = parseInt(version || 1, 10)
   }
 
-  this.location = location
-  this.prefix = opts.prefix == null ? DEFAULT_PREFIX : opts.prefix
-  this.version = parseInt(opts.version || 1, 10)
+  get location () {
+    return this[kLocation]
+  }
+
+  get namePrefix () {
+    return this[kNamePrefix]
+  }
+
+  get version () {
+    return this[kVersion]
+  }
+
+  get type () {
+    return 'browser-level'
+  }
 }
 
-inherits(Level, AbstractLevelDOWN)
+// TODO: move to class
 
-Level.prototype.type = 'level-js'
-
-Level.prototype._open = function (options, callback) {
-  const req = indexedDB.open(this.prefix + this.location, this.version)
+BrowserLevel.prototype._open = function (options, callback) {
+  const req = indexedDB.open(this[kNamePrefix] + this[kLocation], this[kVersion])
 
   req.onerror = function () {
     callback(req.error || new Error('unknown error'))
   }
 
   req.onsuccess = () => {
+    // TODO: use symbol
     this.db = req.result
     callback()
   }
@@ -57,18 +80,20 @@ Level.prototype._open = function (options, callback) {
   req.onupgradeneeded = (ev) => {
     const db = ev.target.result
 
-    if (!db.objectStoreNames.contains(this.location)) {
-      db.createObjectStore(this.location)
+    if (!db.objectStoreNames.contains(this[kLocation])) {
+      db.createObjectStore(this[kLocation])
     }
   }
 }
 
-Level.prototype.store = function (mode) {
-  const transaction = this.db.transaction([this.location], mode)
-  return transaction.objectStore(this.location)
+// TODO: use symbol
+BrowserLevel.prototype.store = function (mode) {
+  const transaction = this.db.transaction([this[kLocation]], mode)
+  return transaction.objectStore(this[kLocation])
 }
 
-Level.prototype.await = function (request, callback) {
+// TODO: use symbol
+BrowserLevel.prototype.await = function (request, callback) {
   const transaction = request.transaction
 
   // Take advantage of the fact that a non-canceled request error aborts
@@ -82,30 +107,30 @@ Level.prototype.await = function (request, callback) {
   }
 }
 
-Level.prototype._get = function (key, options, callback) {
+BrowserLevel.prototype._get = function (key, options, callback) {
   const store = this.store('readonly')
   let req
 
   try {
     req = store.get(key)
   } catch (err) {
-    return this._nextTick(callback, err)
+    return this.nextTick(callback, err)
   }
 
   this.await(req, function (err, value) {
     if (err) return callback(err)
 
     if (value === undefined) {
-      // 'NotFound' error, consistent with LevelDOWN API
-      return callback(new Error('NotFound'))
+      return callback(new ModuleError('Entry not found', {
+        code: 'LEVEL_NOT_FOUND'
+      }))
     }
 
-    callback(null, deserialize(value, options.asBuffer))
+    callback(null, deserialize(value))
   })
 }
 
-Level.prototype._getMany = function (keys, options, callback) {
-  const asBuffer = options.asBuffer
+BrowserLevel.prototype._getMany = function (keys, options, callback) {
   const store = this.store('readonly')
   const tasks = keys.map((key) => (next) => {
     let request
@@ -118,7 +143,7 @@ Level.prototype._getMany = function (keys, options, callback) {
 
     request.onsuccess = () => {
       const value = request.result
-      next(null, value === undefined ? value : deserialize(value, asBuffer))
+      next(null, value === undefined ? value : deserialize(value))
     }
 
     request.onerror = (ev) => {
@@ -130,20 +155,20 @@ Level.prototype._getMany = function (keys, options, callback) {
   parallel(tasks, 16, callback)
 }
 
-Level.prototype._del = function (key, options, callback) {
+BrowserLevel.prototype._del = function (key, options, callback) {
   const store = this.store('readwrite')
   let req
 
   try {
     req = store.delete(key)
   } catch (err) {
-    return this._nextTick(callback, err)
+    return this.nextTick(callback, err)
   }
 
   this.await(req, callback)
 }
 
-Level.prototype._put = function (key, value, options, callback) {
+BrowserLevel.prototype._put = function (key, value, options, callback) {
   const store = this.store('readwrite')
   let req
 
@@ -152,27 +177,18 @@ Level.prototype._put = function (key, value, options, callback) {
     // does not support serializing the key or value respectively.
     req = store.put(value, key)
   } catch (err) {
-    return this._nextTick(callback, err)
+    return this.nextTick(callback, err)
   }
 
   this.await(req, callback)
 }
 
-Level.prototype._serializeKey = function (key) {
-  return serialize(key, this.supports.bufferKeys)
+// TODO: implement key and value iterators, and nextv()
+BrowserLevel.prototype._iterator = function (options) {
+  return new Iterator(this, this[kLocation], options)
 }
 
-Level.prototype._serializeValue = function (value) {
-  return serialize(value, true)
-}
-
-Level.prototype._iterator = function (options) {
-  return new Iterator(this, this.location, options)
-}
-
-Level.prototype._batch = function (operations, options, callback) {
-  if (operations.length === 0) return this._nextTick(callback)
-
+BrowserLevel.prototype._batch = function (operations, options, callback) {
   const store = this.store('readwrite')
   const transaction = store.transaction
   let index = 0
@@ -209,7 +225,7 @@ Level.prototype._batch = function (operations, options, callback) {
   loop()
 }
 
-Level.prototype._clear = function (options, callback) {
+BrowserLevel.prototype._clear = function (options, callback) {
   let keyRange
   let req
 
@@ -218,78 +234,31 @@ Level.prototype._clear = function (options, callback) {
   } catch (e) {
     // The lower key is greater than the upper key.
     // IndexedDB throws an error, but we'll just do nothing.
-    return this._nextTick(callback)
+    return this.nextTick(callback)
   }
 
   if (options.limit >= 0) {
     // IDBObjectStore#delete(range) doesn't have such an option.
     // Fall back to cursor-based implementation.
-    return clear(this, this.location, keyRange, options, callback)
+    return clear(this, this[kLocation], keyRange, options, callback)
   }
 
   try {
     const store = this.store('readwrite')
     req = keyRange ? store.delete(keyRange) : store.clear()
   } catch (err) {
-    return this._nextTick(callback, err)
+    return this.nextTick(callback, err)
   }
 
   this.await(req, callback)
 }
 
-Level.prototype._close = function (callback) {
+BrowserLevel.prototype._close = function (callback) {
   this.db.close()
-  this._nextTick(callback)
+  this.nextTick(callback)
 }
 
-// NOTE: remove in a next major release
-Level.prototype.upgrade = function (callback) {
-  if (this.status !== 'open') {
-    return this._nextTick(callback, new Error('cannot upgrade() before open()'))
-  }
-
-  const it = this.iterator()
-  const batchOptions = {}
-  const self = this
-
-  it._deserializeKey = it._deserializeValue = identity
-  next()
-
-  function next (err) {
-    if (err) return finish(err)
-    it.next(each)
-  }
-
-  function each (err, key, value) {
-    if (err || key === undefined) {
-      return finish(err)
-    }
-
-    const newKey = self._serializeKey(deserialize(key, true))
-    const newValue = self._serializeValue(deserialize(value, true))
-
-    // To bypass serialization on the old key, use _batch() instead of batch().
-    // NOTE: if we disable snapshotting (#86) this could lead to a loop of
-    // inserting and then iterating those same entries, because the new keys
-    // possibly sort after the old keys.
-    self._batch([
-      { type: 'del', key: key },
-      { type: 'put', key: newKey, value: newValue }
-    ], batchOptions, next)
-  }
-
-  function finish (err) {
-    it.end(function (err2) {
-      callback(err || err2)
-    })
-  }
-
-  function identity (data) {
-    return data
-  }
-}
-
-Level.destroy = function (location, prefix, callback) {
+BrowserLevel.destroy = function (location, prefix, callback) {
   if (typeof prefix === 'function') {
     callback = prefix
     prefix = DEFAULT_PREFIX
@@ -302,3 +271,5 @@ Level.destroy = function (location, prefix, callback) {
     callback(err)
   }
 }
+
+exports.BrowserLevel = BrowserLevel
