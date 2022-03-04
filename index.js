@@ -13,6 +13,7 @@ const createKeyRange = require('./util/key-range')
 // Keep as-is for compatibility with existing level-js databases
 const DEFAULT_PREFIX = 'level-js-'
 
+const kIDB = Symbol('idb')
 const kNamePrefix = Symbol('namePrefix')
 const kLocation = Symbol('location')
 const kVersion = Symbol('version')
@@ -43,6 +44,7 @@ class BrowserLevel extends AbstractLevel {
     this[kLocation] = location
     this[kNamePrefix] = prefix == null ? DEFAULT_PREFIX : prefix
     this[kVersion] = parseInt(version || 1, 10)
+    this[kIDB] = null
   }
 
   get location () {
@@ -55,6 +57,11 @@ class BrowserLevel extends AbstractLevel {
 
   get version () {
     return this[kVersion]
+  }
+
+  // Exposed for backwards compat and unit tests
+  get db () {
+    return this[kIDB]
   }
 
   get type () {
@@ -72,8 +79,7 @@ BrowserLevel.prototype._open = function (options, callback) {
   }
 
   req.onsuccess = () => {
-    // TODO: use symbol
-    this.db = req.result
+    this[kIDB] = req.result
     callback()
   }
 
@@ -88,7 +94,7 @@ BrowserLevel.prototype._open = function (options, callback) {
 
 // TODO: use symbol
 BrowserLevel.prototype.store = function (mode) {
-  const transaction = this.db.transaction([this[kLocation]], mode)
+  const transaction = this[kIDB].transaction([this[kLocation]], mode)
   return transaction.objectStore(this[kLocation])
 }
 
@@ -254,7 +260,7 @@ BrowserLevel.prototype._clear = function (options, callback) {
 }
 
 BrowserLevel.prototype._close = function (callback) {
-  this.db.close()
+  this[kIDB].close()
   this.nextTick(callback)
 }
 
