@@ -1,6 +1,7 @@
 import {
   AbstractLevel,
-  AbstractDatabaseOptions
+  AbstractDatabaseOptions,
+  NodeCallback
 } from 'abstract-level'
 
 /**
@@ -22,6 +23,14 @@ export class BrowserLevel<KDefault = string, VDefault = string>
    * @param options Options, of which some will be forwarded to {@link open}.
    */
   constructor (location: string, options?: DatabaseOptions<KDefault, VDefault> | undefined)
+
+  /**
+   * Delete the IndexedDB database at the given {@link location}.
+   */
+  static destroy (location: string): Promise<void>
+  static destroy (location: string, prefix: string): Promise<void>
+  static destroy (location: string, callback: NodeCallback<void>): void
+  static destroy (location: string, prefix: string, callback: NodeCallback<void>): void
 }
 
 /**
