@@ -119,7 +119,10 @@ class Iterator extends AbstractIterator {
       }
     } else {
       // Can't use getAll() in reverse, so use a slower cursor that yields one item at a time
-      store.openCursor(keyRange, 'prev').onsuccess = (ev) => {
+      // TODO: test if all target browsers support openKeyCursor
+      const method = !this[kOptions].values && store.openKeyCursor ? 'openKeyCursor' : 'openCursor'
+
+      store[method](keyRange, 'prev').onsuccess = (ev) => {
         const cursor = ev.target.result
 
         if (cursor) {
