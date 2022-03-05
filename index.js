@@ -225,6 +225,9 @@ class BrowserLevel extends AbstractLevel {
 
       if (index < operations.length) {
         req.onsuccess = loop
+      } else if (typeof transaction.commit === 'function') {
+        // Commit now instead of waiting for auto-commit
+        transaction.commit()
       }
     }
 
