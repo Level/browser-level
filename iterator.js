@@ -4,137 +4,192 @@ const { AbstractIterator } = require('abstract-level')
 const createKeyRange = require('./util/key-range')
 const deserialize = require('./util/deserialize')
 
-const noop = function () {}
-const kCount = Symbol('count')
-const kCallback = Symbol('callback')
 const kCache = Symbol('cache')
-const kCompleted = Symbol('completed')
-const kAborted = Symbol('aborted')
-const kError = Symbol('error')
-const kKeys = Symbol('keys')
-const kValues = Symbol('values')
-const kOnItem = Symbol('onItem')
-const kOnAbort = Symbol('onAbort')
-const kOnComplete = Symbol('onComplete')
-const kMaybeNext = Symbol('maybeNext')
+const kFinished = Symbol('finished')
+const kOptions = Symbol('options')
+const kPosition = Symbol('position')
+const kLocation = Symbol('location')
+const emptyOptions = {}
 
 class Iterator extends AbstractIterator {
   constructor (db, location, options) {
     super(db, options)
 
-    this[kCount] = 0
-    this[kCallback] = null
     this[kCache] = []
-    this[kCompleted] = false
-    this[kAborted] = false
-    this[kError] = null
-    this[kKeys] = options.keys
-    this[kValues] = options.values
+    this[kFinished] = this.limit === 0
+    this[kOptions] = options
+    this[kPosition] = undefined
+    this[kLocation] = location
+  }
 
-    if (this.limit === 0) {
-      this[kCompleted] = true
-      return
+  // Note: if called by _all() then size can be Infinity. This is an internal
+  // detail; by design AbstractIterator.nextv() does not support Infinity.
+  _nextv (size, options, callback) {
+    if (this[kFinished]) {
+      return this.nextTick(callback, null, [])
+    } else if (this[kCache].length > 0) {
+      // TODO: mixing next and nextv is not covered by test suite
+      size = Math.min(size, this[kCache].length)
+      return this.nextTick(callback, null, this[kCache].splice(0, size))
+    }
+
+    // Adjust range by what we already visited
+    if (this[kPosition] !== undefined) {
+      if (this[kOptions].reverse) {
+        this[kOptions].lt = this[kPosition]
+        this[kOptions].lte = undefined
+      } else {
+        this[kOptions].gt = this[kPosition]
+        this[kOptions].gte = undefined
+      }
     }
 
     let keyRange
 
     try {
-      keyRange = createKeyRange(options)
-    } catch (e) {
+      keyRange = createKeyRange(this[kOptions])
+    } catch (_) {
       // The lower key is greater than the upper key.
       // IndexedDB throws an error, but we'll just return 0 results.
-      this[kCompleted] = true
-      return
+      this[kFinished] = true
+      return this.nextTick(callback, null, [])
     }
 
-    const transaction = db.db.transaction([location], 'readonly')
-    const store = transaction.objectStore(location)
-    const req = store.openCursor(keyRange, options.reverse ? 'prev' : 'next')
+    const transaction = this.db.db.transaction([this[kLocation]], 'readonly')
+    const store = transaction.objectStore(this[kLocation])
+    const entries = []
 
-    req.onsuccess = (ev) => {
-      const cursor = ev.target.result
-      if (cursor) this[kOnItem](cursor)
+    if (!this[kOptions].reverse) {
+      let keys
+      let values
+
+      const complete = () => {
+        // Wait for both requests to complete
+        if (keys === undefined || values === undefined) return
+
+        const length = Math.max(keys.length, values.length)
+
+        if (length === 0 || size === Infinity) {
+          this[kFinished] = true
+        } else {
+          this[kPosition] = keys[length - 1]
+        }
+
+        // Resize
+        entries.length = length
+
+        // Merge keys and values
+        for (let i = 0; i < length; i++) {
+          const key = keys[i]
+          const value = values[i]
+
+          entries[i] = [
+            this[kOptions].keys && key !== undefined ? deserialize(key) : undefined,
+            this[kOptions].values && value !== undefined ? deserialize(value) : undefined
+          ]
+        }
+
+        maybeCommit(transaction)
+      }
+
+      // If keys were not requested and size is Infinity, we don't have to keep
+      // track of position and can thus skip getting keys.
+      if (this[kOptions].keys || size < Infinity) {
+        store.getAllKeys(keyRange, size < Infinity ? size : undefined).onsuccess = (ev) => {
+          keys = ev.target.result
+          complete()
+        }
+      } else {
+        keys = []
+        this.nextTick(complete)
+      }
+
+      if (this[kOptions].values) {
+        store.getAll(keyRange, size < Infinity ? size : undefined).onsuccess = (ev) => {
+          values = ev.target.result
+          complete()
+        }
+      } else {
+        values = []
+        this.nextTick(complete)
+      }
+    } else {
+      // Can't use getAll() in reverse, so use a slower cursor that yields one item at a time
+      store.openCursor(keyRange, 'prev').onsuccess = (ev) => {
+        const cursor = ev.target.result
+
+        if (cursor) {
+          const { key, value } = cursor
+          this[kPosition] = key
+
+          entries.push([
+            this[kOptions].keys && key !== undefined ? deserialize(key) : undefined,
+            this[kOptions].values && value !== undefined ? deserialize(value) : undefined
+          ])
+
+          if (entries.length < size) {
+            cursor.continue()
+          } else {
+            maybeCommit(transaction)
+          }
+        } else {
+          this[kFinished] = true
+        }
+      }
     }
 
     // If an error occurs (on the request), the transaction will abort.
     transaction.onabort = () => {
-      this[kOnAbort](transaction.error || new Error('aborted by user'))
+      callback(transaction.error || new Error('aborted by user'))
+      callback = null
     }
 
     transaction.oncomplete = () => {
-      this[kOnComplete]()
-    }
-  }
-
-  [kOnItem] (cursor) {
-    this[kCache].push(cursor.key, cursor.value)
-
-    if (++this[kCount] < this.limit) {
-      cursor.continue()
-    }
-
-    this[kMaybeNext]()
-  }
-
-  [kOnAbort] (err) {
-    this[kAborted] = true
-    this[kError] = err
-    this[kMaybeNext]()
-  }
-
-  [kOnComplete] () {
-    this[kCompleted] = true
-    this[kMaybeNext]()
-  }
-
-  [kMaybeNext] () {
-    if (this[kCallback]) {
-      this._next(this[kCallback])
-      this[kCallback] = null
+      callback(null, entries)
+      callback = null
     }
   }
 
   _next (callback) {
-    if (this[kAborted]) {
-      const err = this[kError]
-      this[kError] = null
-      this.nextTick(callback, err)
-    } else if (this[kCache].length > 0) {
-      let key = this[kCache].shift()
-      let value = this[kCache].shift()
-
-      if (this[kKeys] && key !== undefined) {
-        key = deserialize(key)
-      } else {
-        key = undefined
-      }
-
-      if (this[kValues] && value !== undefined) {
-        value = deserialize(value)
-      } else {
-        value = undefined
-      }
-
+    if (this[kCache].length > 0) {
+      const [key, value] = this[kCache].shift()
       this.nextTick(callback, null, key, value)
-    } else if (this[kCompleted]) {
+    } else if (this[kFinished]) {
       this.nextTick(callback)
     } else {
-      this[kCallback] = callback
+      // TODO: use 1 if this is the first _next() call (see classic-level)
+      const size = Math.min(100, this.limit - this.count)
+
+      this._nextv(size, emptyOptions, (err, entries) => {
+        if (err) return callback(err)
+        this[kCache] = entries
+        this._next(callback)
+      })
     }
   }
 
-  _close (callback) {
-    if (this[kAborted] || this[kCompleted]) {
-      return this.nextTick(callback)
+  _all (options, callback) {
+    // TODO: mixing next and all is not covered by test suite
+    const cache = this[kCache].splice(0, this[kCache].length)
+    const size = this.limit - this.count - cache.length
+
+    if (size <= 0) {
+      return this.nextTick(callback, null, cache)
     }
 
-    // Don't advance the cursor anymore, and the transaction will complete
-    // on its own in the next tick. This approach is much cleaner than calling
-    // transaction.abort() with its unpredictable event order.
-    this[kOnItem] = noop
-    this[kOnAbort] = callback
-    this[kOnComplete] = callback
+    this._nextv(size, emptyOptions, (err, entries) => {
+      if (err) return callback(err)
+      if (cache.length > 0) entries = cache.concat(entries)
+      callback(null, entries)
+    })
   }
 }
 
 exports.Iterator = Iterator
+
+function maybeCommit (transaction) {
+  // Commit (meaning close) now instead of waiting for auto-commit
+  if (typeof transaction.commit === 'function') {
+    transaction.commit()
+  }
+}

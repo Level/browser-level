@@ -2,19 +2,17 @@
 
 'use strict'
 
-const kNone = Symbol('none')
-
 module.exports = function createKeyRange (options) {
-  const lower = 'gte' in options ? options.gte : 'gt' in options ? options.gt : kNone
-  const upper = 'lte' in options ? options.lte : 'lt' in options ? options.lt : kNone
-  const lowerExclusive = !('gte' in options)
-  const upperExclusive = !('lte' in options)
+  const lower = options.gte !== undefined ? options.gte : options.gt !== undefined ? options.gt : undefined
+  const upper = options.lte !== undefined ? options.lte : options.lt !== undefined ? options.lt : undefined
+  const lowerExclusive = options.gte === undefined
+  const upperExclusive = options.lte === undefined
 
-  if (lower !== kNone && upper !== kNone) {
+  if (lower !== undefined && upper !== undefined) {
     return IDBKeyRange.bound(lower, upper, lowerExclusive, upperExclusive)
-  } else if (lower !== kNone) {
+  } else if (lower !== undefined) {
     return IDBKeyRange.lowerBound(lower, lowerExclusive)
-  } else if (upper !== kNone) {
+  } else if (upper !== undefined) {
     return IDBKeyRange.upperBound(upper, upperExclusive)
   } else {
     return null

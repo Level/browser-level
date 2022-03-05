@@ -35,6 +35,7 @@ class BrowserLevel extends AbstractLevel {
 
     super({
       encodings: { view: true },
+      snapshots: false,
       createIfMissing: false,
       errorIfExists: false,
       seek: false
@@ -188,7 +189,7 @@ class BrowserLevel extends AbstractLevel {
     this[kOnComplete](req, callback)
   }
 
-  // TODO: implement key and value iterators, and nextv()
+  // TODO: implement key and value iterators
   _iterator (options) {
     return new Iterator(this, this[kLocation], options)
   }
