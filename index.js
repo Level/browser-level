@@ -38,7 +38,7 @@ class BrowserLevel extends AbstractLevel {
       snapshots: false,
       createIfMissing: false,
       errorIfExists: false,
-      seek: false
+      seek: true
     }, forward)
 
     if (typeof location !== 'string') {

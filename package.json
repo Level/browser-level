@@ -7,7 +7,7 @@
   "main": "index.js",
   "types": "./index.d.ts",
   "scripts": {
-    "test": "standard && ts-standard *.ts && hallmark && airtap -p local --coverage test/index.js",
+    "test": "standard && ts-standard *.ts && hallmark && airtap -p local --coverage test/index.js && nyc report",
     "test-browsers": "standard && airtap --coverage test/index.js",
     "coverage": "nyc report -r lcovonly",
     "dependency-check": "dependency-check --no-dev .",

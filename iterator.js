@@ -7,6 +7,7 @@ const deserialize = require('./util/deserialize')
 const kCache = Symbol('cache')
 const kFinished = Symbol('finished')
 const kOptions = Symbol('options')
+const kCurrentOptions = Symbol('currentOptions')
 const kPosition = Symbol('position')
 const kLocation = Symbol('location')
 const kFirst = Symbol('first')
@@ -19,6 +20,7 @@ class Iterator extends AbstractIterator {
     this[kCache] = []
     this[kFinished] = this.limit === 0
     this[kOptions] = options
+    this[kCurrentOptions] = { ...options }
     this[kPosition] = undefined
     this[kLocation] = location
     this[kFirst] = true
@@ -40,18 +42,18 @@ class Iterator extends AbstractIterator {
     // Adjust range by what we already visited
     if (this[kPosition] !== undefined) {
       if (this[kOptions].reverse) {
-        this[kOptions].lt = this[kPosition]
-        this[kOptions].lte = undefined
+        this[kCurrentOptions].lt = this[kPosition]
+        this[kCurrentOptions].lte = undefined
       } else {
-        this[kOptions].gt = this[kPosition]
-        this[kOptions].gte = undefined
+        this[kCurrentOptions].gt = this[kPosition]
+        this[kCurrentOptions].gte = undefined
       }
     }
 
     let keyRange
 
     try {
-      keyRange = createKeyRange(this[kOptions])
+      keyRange = createKeyRange(this[kCurrentOptions])
     } catch (_) {
       // The lower key is greater than the upper key.
       // IndexedDB throws an error, but we'll just return 0 results.
@@ -196,6 +198,33 @@ class Iterator extends AbstractIterator {
       if (cache.length > 0) entries = cache.concat(entries)
       callback(null, entries)
     })
+  }
+
+  _seek (target, options) {
+    this[kFirst] = true
+    this[kCache] = []
+    this[kFinished] = false
+    this[kPosition] = undefined
+
+    // TODO: not covered by test suite
+    this[kCurrentOptions] = { ...this[kOptions] }
+
+    let keyRange
+
+    try {
+      keyRange = createKeyRange(this[kOptions])
+    } catch (_) {
+      this[kFinished] = true
+      return
+    }
+
+    if (keyRange !== null && !keyRange.includes(target)) {
+      this[kFinished] = true
+    } else if (this[kOptions].reverse) {
+      this[kCurrentOptions].lte = target
+    } else {
+      this[kCurrentOptions].gte = target
+    }
   }
 }
 
