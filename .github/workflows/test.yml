@@ -1,33 +1,39 @@
 name: Test
 on: push
-concurrency: sauce-labs
+concurrency: test
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Sauce Labs
+    name: Playwright
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Use node 14
+      - name: Use node 16
         uses: actions/setup-node@v3
         with:
-          node-version: 14
+          node-version: 16
       - name: Install
         run: npm install
         env:
           # Download Sauce Connect binary now instead of on first run
           SAUCE_CONNECT_DOWNLOAD_ON_INSTALL: true
+      - name: Add host
+        run: echo "127.0.0.1 airtap.local" | sudo tee -a /etc/hosts
+      - name: Install Playwright
+        run: npx playwright install-deps
+      - name: Test
+        run: npm test
       # TODO
-      # - name: Add host
-      #   run: echo "127.0.0.1 airtap.local" | sudo tee -a /etc/hosts
       # - name: Test
       #   run: npm run test-browsers
       #   env:
       #     SAUCE_USERNAME: ${{ secrets.SAUCE_USERNAME }}
       #     SAUCE_ACCESS_KEY: ${{ secrets.SAUCE_ACCESS_KEY }}
-      # - name: Coverage
-      #   run: npm run coverage
-      # - name: Codecov
-      #   uses: codecov/codecov-action@v2
-      #   with:
-      #     file: coverage/lcov.info
+      - name: Coverage
+        run: npm run coverage
+      - name: Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          file: coverage/lcov.info
