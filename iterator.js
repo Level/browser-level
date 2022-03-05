@@ -9,6 +9,7 @@ const kFinished = Symbol('finished')
 const kOptions = Symbol('options')
 const kPosition = Symbol('position')
 const kLocation = Symbol('location')
+const kFirst = Symbol('first')
 const emptyOptions = {}
 
 class Iterator extends AbstractIterator {
@@ -20,11 +21,14 @@ class Iterator extends AbstractIterator {
     this[kOptions] = options
     this[kPosition] = undefined
     this[kLocation] = location
+    this[kFirst] = true
   }
 
   // Note: if called by _all() then size can be Infinity. This is an internal
   // detail; by design AbstractIterator.nextv() does not support Infinity.
   _nextv (size, options, callback) {
+    this[kFirst] = false
+
     if (this[kFinished]) {
       return this.nextTick(callback, null, [])
     } else if (this[kCache].length > 0) {
@@ -157,8 +161,13 @@ class Iterator extends AbstractIterator {
     } else if (this[kFinished]) {
       this.nextTick(callback)
     } else {
-      // TODO: use 1 if this is the first _next() call (see classic-level)
-      const size = Math.min(100, this.limit - this.count)
+      let size = Math.min(100, this.limit - this.count)
+
+      if (this[kFirst]) {
+        // It's common to only want one entry initially or after a seek()
+        this[kFirst] = false
+        size = 1
+      }
 
       this._nextv(size, emptyOptions, (err, entries) => {
         if (err) return callback(err)
@@ -169,6 +178,8 @@ class Iterator extends AbstractIterator {
   }
 
   _all (options, callback) {
+    this[kFirst] = false
+
     // TODO: mixing next and all is not covered by test suite
     const cache = this[kCache].splice(0, this[kCache].length)
     const size = this.limit - this.count - cache.length
