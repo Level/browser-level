@@ -1,7 +1,21 @@
 import {
   AbstractLevel,
   AbstractDatabaseOptions,
-  NodeCallback
+  NodeCallback,
+  AbstractOpenOptions,
+  AbstractGetOptions,
+  AbstractGetManyOptions,
+  AbstractPutOptions,
+  AbstractDelOptions,
+  AbstractBatchOptions,
+  AbstractChainedBatch,
+  AbstractIterator,
+  AbstractKeyIterator,
+  AbstractValueIterator,
+  AbstractIteratorOptions,
+  AbstractKeyIteratorOptions,
+  AbstractValueIteratorOptions,
+  AbstractBatchOperation
 } from 'abstract-level'
 
 /**
@@ -25,6 +39,21 @@ export class BrowserLevel<KDefault = string, VDefault = string>
   constructor (location: string, options?: DatabaseOptions<KDefault, VDefault> | undefined)
 
   /**
+   * Location that was passed to the constructor.
+   */
+  get location (): string
+
+  /**
+   * Database name prefix that was passed to the constructor (as `prefix`).
+   */
+  get namePrefix (): string
+
+  /**
+   * Version that was passed to the constructor.
+   */
+  get version (): number
+
+  /**
    * Delete the IndexedDB database at the given {@link location}.
    */
   static destroy (location: string): Promise<void>
@@ -42,14 +71,14 @@ export interface DatabaseOptions<K, V> extends AbstractDatabaseOptions<K, V> {
    *
    * @defaultValue `'level-js-'`
    */
-  prefix: string
+  prefix?: string
 
   /**
    * The version to open the `IDBDatabase` with.
    *
    * @defaultValue `1`
    */
-  version: number | string
+  version?: number | string
 
   /**
    * An {@link AbstractLevel} option that has no effect on {@link BrowserLevel}.
@@ -61,3 +90,22 @@ export interface DatabaseOptions<K, V> extends AbstractDatabaseOptions<K, V> {
    */
   errorIfExists?: boolean
 }
+
+// Export types so that consumers don't have to guess whether they're extended
+export type OpenOptions = AbstractOpenOptions
+export type GetOptions<K, V> = AbstractGetOptions<K, V>
+export type GetManyOptions<K, V> = AbstractGetManyOptions<K, V>
+export type PutOptions<K, V> = AbstractPutOptions<K, V>
+export type DelOptions<K> = AbstractDelOptions<K>
+
+export type BatchOptions<K, V> = AbstractBatchOptions<K, V>
+export type BatchOperation<TDatabase, K, V> = AbstractBatchOperation<TDatabase, K, V>
+export type ChainedBatch<TDatabase, K, V> = AbstractChainedBatch<TDatabase, K, V>
+
+export type Iterator<TDatabase, K, V> = AbstractIterator<TDatabase, K, V>
+export type KeyIterator<TDatabase, K> = AbstractKeyIterator<TDatabase, K>
+export type ValueIterator<TDatabase, K, V> = AbstractValueIterator<TDatabase, K, V>
+
+export type IteratorOptions<K, V> = AbstractIteratorOptions<K, V>
+export type KeyIteratorOptions<K> = AbstractKeyIteratorOptions<K>
+export type ValueIteratorOptions<K, V> = AbstractValueIteratorOptions<K, V>
