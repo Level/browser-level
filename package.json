@@ -29,7 +29,7 @@
     "run-parallel-limit": "^1.1.0"
   },
   "devDependencies": {
-    "@voxpelli/tsconfig": "^3.1.0",
+    "@voxpelli/tsconfig": "^4.0.0",
     "airtap": "^4.0.4",
     "airtap-playwright": "^1.0.1",
     "airtap-sauce": "^1.1.0",
