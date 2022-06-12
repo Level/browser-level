@@ -97,7 +97,7 @@ module.exports = function (test, testCommon) {
 
   test('test .destroy and custom prefix', function (t) {
     const prefix = 'custom-'
-    const db = testCommon.factory({ prefix: prefix })
+    const db = testCommon.factory({ prefix })
     const location = db.location
 
     db.open(function (err) {
@@ -111,7 +111,7 @@ module.exports = function (test, testCommon) {
             t.notOk(err, 'no error')
             BrowserLevel.destroy(location, prefix, function (err) {
               t.notOk(err, 'no error')
-              const db2 = new BrowserLevel(location, { prefix: prefix })
+              const db2 = new BrowserLevel(location, { prefix })
               db2.get('key', function (err, value) {
                 t.is(err && err.code, 'LEVEL_NOT_FOUND', 'key is not there')
                 db2.close(t.end.bind(t))
