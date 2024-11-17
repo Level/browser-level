@@ -50,10 +50,6 @@ for await (const [key, value] of db.iterator({ gt: 'a' })) {
 }
 ```
 
-<!-- ## Browser Support -->
-
-<!-- [![Sauce Test Status](https://app.saucelabs.com/browser-matrix/level-js.svg)](https://app.saucelabs.com/u/level-js) -->
-
 ## API
 
 The API of `browser-level` follows that of [`abstract-level`](https://github.com/Level/abstract-level) with just two additional constructor options (see below) and one additional method (see below). As such, the majority of the API is documented in `abstract-level`. The `createIfMissing` and `errorIfExists` options of `abstract-level` are not supported here.
@@ -117,12 +113,6 @@ npm install browser-level
 ```
 
 This module is best used with [`browserify`](http://browserify.org) or similar bundlers.
-
-<!-- ## Big Thanks
-
-Cross-browser Testing Platform and Open Source ♥ Provided by [Sauce Labs](https://saucelabs.com).
-
-[![Sauce Labs logo](./sauce-labs.svg)](https://saucelabs.com) -->
 
 ## Contributing
 

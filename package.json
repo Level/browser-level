@@ -7,8 +7,7 @@
   "main": "index.js",
   "types": "./index.d.ts",
   "scripts": {
-    "test": "standard && hallmark && airtap -p local --coverage test/index.js && nyc report",
-    "test-browsers": "standard && airtap --coverage test/index.js",
+    "test": "standard && hallmark && airtap --coverage test/index.js && nyc report",
     "coverage": "nyc report -r lcovonly",
     "dependency-check": "dependency-check --no-dev .",
     "prepublishOnly": "npm run dependency-check"
@@ -19,8 +18,7 @@
     "iterator.js",
     "util",
     "CHANGELOG.md",
-    "UPGRADING.md",
-    "sauce-labs.svg"
+    "UPGRADING.md"
   ],
   "dependencies": {
     "abstract-level": "^1.0.2",
@@ -30,9 +28,8 @@
   },
   "devDependencies": {
     "@voxpelli/tsconfig": "^4.0.0",
-    "airtap": "^4.0.4",
+    "airtap": "^5.0.0",
     "airtap-playwright": "^1.0.1",
-    "airtap-sauce": "^1.1.0",
     "dependency-check": "^4.1.0",
     "hallmark": "^4.1.0",
     "nyc": "^15.0.0",
