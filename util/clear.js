@@ -1,19 +1,20 @@
 'use strict'
 
-module.exports = function clear (db, location, keyRange, options, callback) {
-  if (options.limit === 0) return db.nextTick(callback)
+module.exports = async function clear (db, location, keyRange, options) {
+  if (options.limit === 0) return
 
   const transaction = db.db.transaction([location], 'readwrite')
   const store = transaction.objectStore(location)
+
   let count = 0
 
-  transaction.oncomplete = function () {
-    callback()
-  }
+  const promise = new Promise(function (resolve, reject) {
+    transaction.oncomplete = resolve
 
-  transaction.onabort = function () {
-    callback(transaction.error || new Error('aborted by user'))
-  }
+    transaction.onabort = function () {
+      reject(transaction.error || new Error('aborted by user'))
+    }
+  })
 
   // A key cursor is faster (skips reading values) but not supported by IE
   // TODO: we no longer support IE. Test others
@@ -32,4 +33,6 @@ module.exports = function clear (db, location, keyRange, options, callback) {
       }
     }
   }
+
+  return promise
 }

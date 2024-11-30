@@ -4,8 +4,6 @@
 
 const { AbstractLevel } = require('abstract-level')
 const ModuleError = require('module-error')
-const parallel = require('run-parallel-limit')
-const { fromCallback } = require('catering')
 const { Iterator } = require('./iterator')
 const deserialize = require('./util/deserialize')
 const clear = require('./util/clear')
@@ -20,7 +18,6 @@ const kLocation = Symbol('location')
 const kVersion = Symbol('version')
 const kStore = Symbol('store')
 const kOnComplete = Symbol('onComplete')
-const kPromise = Symbol('promise')
 
 class BrowserLevel extends AbstractLevel {
   constructor (location, options, _) {
@@ -73,25 +70,27 @@ class BrowserLevel extends AbstractLevel {
     return 'browser-level'
   }
 
-  _open (options, callback) {
-    const req = indexedDB.open(this[kNamePrefix] + this[kLocation], this[kVersion])
+  async _open (options) {
+    const request = indexedDB.open(this[kNamePrefix] + this[kLocation], this[kVersion])
 
-    req.onerror = function () {
-      callback(req.error || new Error('unknown error'))
-    }
-
-    req.onsuccess = () => {
-      this[kIDB] = req.result
-      callback()
-    }
-
-    req.onupgradeneeded = (ev) => {
+    request.onupgradeneeded = (ev) => {
       const db = ev.target.result
 
       if (!db.objectStoreNames.contains(this[kLocation])) {
         db.createObjectStore(this[kLocation])
       }
     }
+
+    return new Promise((resolve, reject) => {
+      request.onerror = function () {
+        reject(request.error || new Error('unknown error'))
+      }
+
+      request.onsuccess = () => {
+        this[kIDB] = request.result
+        resolve()
+      }
+    })
   }
 
   [kStore] (mode) {
@@ -99,94 +98,91 @@ class BrowserLevel extends AbstractLevel {
     return transaction.objectStore(this[kLocation])
   }
 
-  [kOnComplete] (request, callback) {
+  [kOnComplete] (request) {
     const transaction = request.transaction
 
-    // Take advantage of the fact that a non-canceled request error aborts
-    // the transaction. I.e. no need to listen for "request.onerror".
-    transaction.onabort = function () {
-      callback(transaction.error || new Error('aborted by user'))
-    }
-
-    transaction.oncomplete = function () {
-      callback(null, request.result)
-    }
-  }
-
-  _get (key, options, callback) {
-    const store = this[kStore]('readonly')
-    let req
-
-    try {
-      req = store.get(key)
-    } catch (err) {
-      return this.nextTick(callback, err)
-    }
-
-    this[kOnComplete](req, function (err, value) {
-      if (err) return callback(err)
-
-      if (value === undefined) {
-        return callback(new ModuleError('Entry not found', {
-          code: 'LEVEL_NOT_FOUND'
-        }))
+    return new Promise(function (resolve, reject) {
+      // Take advantage of the fact that a non-canceled request error aborts
+      // the transaction. I.e. no need to listen for "request.onerror".
+      transaction.onabort = function () {
+        reject(transaction.error || new Error('aborted by user'))
       }
 
-      callback(null, deserialize(value))
+      transaction.oncomplete = function () {
+        resolve(request.result)
+      }
     })
   }
 
-  _getMany (keys, options, callback) {
+  async _get (key, options) {
     const store = this[kStore]('readonly')
-    const tasks = keys.map((key) => (next) => {
-      let request
+    const request = store.get(key)
+    const value = await this[kOnComplete](request)
 
+    return deserialize(value)
+  }
+
+  async _getMany (keys, options) {
+    const store = this[kStore]('readonly')
+    const iterator = keys.values()
+
+    // Consume the iterator with N parallel worker bees
+    const n = Math.min(16, keys.length)
+    const bees = new Array(n)
+    const values = new Array(keys.length)
+
+    let keyIndex = 0
+    let abort = false
+
+    const bee = async function () {
       try {
-        request = store.get(key)
+        for (const key of iterator) {
+          if (abort) break
+
+          const valueIndex = keyIndex++
+          const request = store.get(key)
+
+          await new Promise(function (resolve, reject) {
+            request.onsuccess = () => {
+              values[valueIndex] = deserialize(request.result)
+              resolve()
+            }
+
+            request.onerror = (ev) => {
+              ev.stopPropagation()
+              reject(request.error)
+            }
+          })
+        }
       } catch (err) {
-        return next(err)
+        abort = true
+        throw err
       }
-
-      request.onsuccess = () => {
-        const value = request.result
-        next(null, value === undefined ? value : deserialize(value))
-      }
-
-      request.onerror = (ev) => {
-        ev.stopPropagation()
-        next(request.error)
-      }
-    })
-
-    parallel(tasks, 16, callback)
-  }
-
-  _del (key, options, callback) {
-    const store = this[kStore]('readwrite')
-    let req
-
-    try {
-      req = store.delete(key)
-    } catch (err) {
-      return this.nextTick(callback, err)
     }
 
-    this[kOnComplete](req, callback)
-  }
-
-  _put (key, value, options, callback) {
-    const store = this[kStore]('readwrite')
-    let req
-
-    try {
-      // Will throw a DataError or DataCloneError if the environment
-      // does not support serializing the key or value respectively.
-      req = store.put(value, key)
-    } catch (err) {
-      return this.nextTick(callback, err)
+    for (let i = 0; i < n; i++) {
+      bees[i] = bee()
     }
 
-    this[kOnComplete](req, callback)
+    await Promise.allSettled(bees)
+    return values
+  }
+
+  async _del (key, options) {
+    const store = this[kStore]('readwrite')
+    const request = store.delete(key)
+
+    return this[kOnComplete](request)
+  }
+
+  async _put (key, value, options) {
+    const store = this[kStore]('readwrite')
+
+    // Will throw a DataError or DataCloneError if the environment
+    // does not support serializing the key or value respectively.
+    const request = store.put(value, key)
+
+    return this[kOnComplete](request)
   }
 
   // TODO: implement key and value iterators
@@ -194,19 +190,19 @@ class BrowserLevel extends AbstractLevel {
     return new Iterator(this, this[kLocation], options)
   }
 
-  _batch (operations, options, callback) {
+  async _batch (operations, options) {
     const store = this[kStore]('readwrite')
     const transaction = store.transaction
     let index = 0
     let error
 
-    transaction.onabort = function () {
-      callback(error || transaction.error || new Error('aborted by user'))
-    }
+    const promise = new Promise(function (resolve, reject) {
+      transaction.onabort = function () {
+        reject(error || transaction.error || new Error('aborted by user'))
+      }
 
-    transaction.oncomplete = function () {
-      callback()
-    }
+      transaction.oncomplete = resolve
+    })
 
     // Wait for a request to complete before making the next, saving CPU.
     function loop () {
@@ -232,60 +228,48 @@ class BrowserLevel extends AbstractLevel {
     }
 
     loop()
+    return promise
   }
 
-  _clear (options, callback) {
+  async _clear (options) {
     let keyRange
-    let req
 
     try {
       keyRange = createKeyRange(options)
     } catch (e) {
       // The lower key is greater than the upper key.
       // IndexedDB throws an error, but we'll just do nothing.
-      return this.nextTick(callback)
+      return
     }
 
     if (options.limit >= 0) {
       // IDBObjectStore#delete(range) doesn't have such an option.
       // Fall back to cursor-based implementation.
-      return clear(this, this[kLocation], keyRange, options, callback)
+      return clear(this, this[kLocation], keyRange, options)
     }
 
-    try {
-      const store = this[kStore]('readwrite')
-      req = keyRange ? store.delete(keyRange) : store.clear()
-    } catch (err) {
-      return this.nextTick(callback, err)
-    }
+    const store = this[kStore]('readwrite')
+    const request = keyRange ? store.delete(keyRange) : store.clear()
 
-    this[kOnComplete](req, callback)
+    return this[kOnComplete](request)
   }
 
-  _close (callback) {
+  async _close () {
     this[kIDB].close()
-    this.nextTick(callback)
   }
 }
 
-BrowserLevel.destroy = function (location, prefix, callback) {
-  if (typeof prefix === 'function') {
-    callback = prefix
+BrowserLevel.destroy = async function (location, prefix) {
+  if (prefix == null) {
     prefix = DEFAULT_PREFIX
   }
 
-  callback = fromCallback(callback, kPromise)
   const request = indexedDB.deleteDatabase(prefix + location)
 
-  request.onsuccess = function () {
-    callback()
-  }
-
-  request.onerror = function (err) {
-    callback(err)
-  }
-
-  return callback[kPromise]
+  return new Promise(function (resolve, reject) {
+    request.onsuccess = resolve
+    request.onerror = reject
+  })
 }
 
 exports.BrowserLevel = BrowserLevel

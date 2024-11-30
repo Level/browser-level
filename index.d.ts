@@ -1,7 +1,6 @@
 import {
   AbstractLevel,
   AbstractDatabaseOptions,
-  NodeCallback,
   AbstractOpenOptions,
   AbstractGetOptions,
   AbstractGetManyOptions,
@@ -58,8 +57,6 @@ export class BrowserLevel<KDefault = string, VDefault = string>
    */
   static destroy (location: string): Promise<void>
   static destroy (location: string, prefix: string): Promise<void>
-  static destroy (location: string, callback: NodeCallback<void>): void
-  static destroy (location: string, prefix: string, callback: NodeCallback<void>): void
 }
 
 /**
