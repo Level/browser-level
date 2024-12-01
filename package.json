@@ -1,6 +1,6 @@
 {
   "name": "browser-level",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "An abstract-level database for browsers, backed by IndexedDB",
   "author": "max ogden",
   "license": "MIT",
