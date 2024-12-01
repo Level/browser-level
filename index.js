@@ -3,7 +3,6 @@
 'use strict'
 
 const { AbstractLevel } = require('abstract-level')
-const ModuleError = require('module-error')
 const { Iterator } = require('./iterator')
 const deserialize = require('./util/deserialize')
 const clear = require('./util/clear')
@@ -20,14 +19,7 @@ const kStore = Symbol('store')
 const kOnComplete = Symbol('onComplete')
 
 class BrowserLevel extends AbstractLevel {
-  constructor (location, options, _) {
-    // To help migrating to abstract-level
-    if (typeof options === 'function' || typeof _ === 'function') {
-      throw new ModuleError('The levelup-style callback argument has been removed', {
-        code: 'LEVEL_LEGACY'
-      })
-    }
-
+  constructor (location, options) {
     const { prefix, version, ...forward } = options || {}
 
     super({
