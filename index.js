@@ -30,8 +30,8 @@ class BrowserLevel extends AbstractLevel {
       seek: true
     }, forward)
 
-    if (typeof location !== 'string') {
-      throw new Error('constructor requires a location string argument')
+    if (typeof location !== 'string' || location === '') {
+      throw new TypeError("The first argument 'location' must be a non-empty string")
     }
 
     // TODO (next major): remove default prefix
