@@ -3,7 +3,10 @@
 const textEncoder = new TextEncoder()
 
 module.exports = function (data) {
-  if (data instanceof Uint8Array) {
+  if (data === undefined) {
+    // Undefined means not found in both IndexedDB and AbstractLevel
+    return data
+  } else if (data instanceof Uint8Array) {
     return data
   } else if (data instanceof ArrayBuffer) {
     return new Uint8Array(data)

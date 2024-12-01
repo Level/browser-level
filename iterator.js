@@ -28,15 +28,17 @@ class Iterator extends AbstractIterator {
 
   // Note: if called by _all() then size can be Infinity. This is an internal
   // detail; by design AbstractIterator.nextv() does not support Infinity.
-  _nextv (size, options, callback) {
+  async _nextv (size, options) {
     this[kFirst] = false
 
     if (this[kFinished]) {
-      return this.nextTick(callback, null, [])
-    } else if (this[kCache].length > 0) {
+      return []
+    }
+
+    if (this[kCache].length > 0) {
       // TODO: mixing next and nextv is not covered by test suite
       size = Math.min(size, this[kCache].length)
-      return this.nextTick(callback, null, this[kCache].splice(0, size))
+      return this[kCache].splice(0, size)
     }
 
     // Adjust range by what we already visited
@@ -58,12 +60,23 @@ class Iterator extends AbstractIterator {
       // The lower key is greater than the upper key.
       // IndexedDB throws an error, but we'll just return 0 results.
       this[kFinished] = true
-      return this.nextTick(callback, null, [])
+      return []
     }
 
     const transaction = this.db.db.transaction([this[kLocation]], 'readonly')
     const store = transaction.objectStore(this[kLocation])
     const entries = []
+
+    const promise = new Promise(function (resolve, reject) {
+      // If an error occurs (on the request), the transaction will abort.
+      transaction.onabort = () => {
+        reject(transaction.error || new Error('aborted by user'))
+      }
+
+      transaction.oncomplete = () => {
+        resolve(entries)
+      }
+    })
 
     if (!this[kOptions].reverse) {
       let keys
@@ -90,8 +103,8 @@ class Iterator extends AbstractIterator {
           const value = values[i]
 
           entries[i] = [
-            this[kOptions].keys && key !== undefined ? deserialize(key) : undefined,
-            this[kOptions].values && value !== undefined ? deserialize(value) : undefined
+            this[kOptions].keys ? deserialize(key) : undefined,
+            this[kOptions].values ? deserialize(value) : undefined
           ]
         }
 
@@ -107,7 +120,7 @@ class Iterator extends AbstractIterator {
         }
       } else {
         keys = []
-        this.nextTick(complete)
+        complete()
       }
 
       if (this[kOptions].values) {
@@ -117,7 +130,7 @@ class Iterator extends AbstractIterator {
         }
       } else {
         values = []
-        this.nextTick(complete)
+        complete()
       }
     } else {
       // Can't use getAll() in reverse, so use a slower cursor that yields one item at a time
@@ -147,25 +160,15 @@ class Iterator extends AbstractIterator {
       }
     }
 
-    // If an error occurs (on the request), the transaction will abort.
-    transaction.onabort = () => {
-      callback(transaction.error || new Error('aborted by user'))
-      callback = null
-    }
-
-    transaction.oncomplete = () => {
-      callback(null, entries)
-      callback = null
-    }
+    return promise
   }
 
-  _next (callback) {
+  async _next () {
     if (this[kCache].length > 0) {
-      const [key, value] = this[kCache].shift()
-      this.nextTick(callback, null, key, value)
-    } else if (this[kFinished]) {
-      this.nextTick(callback)
-    } else {
+      return this[kCache].shift()
+    }
+
+    if (!this[kFinished]) {
       let size = Math.min(100, this.limit - this.count)
 
       if (this[kFirst]) {
@@ -174,15 +177,14 @@ class Iterator extends AbstractIterator {
         size = 1
       }
 
-      this._nextv(size, emptyOptions, (err, entries) => {
-        if (err) return callback(err)
-        this[kCache] = entries
-        this._next(callback)
-      })
+      this[kCache] = await this._nextv(size, emptyOptions)
+
+      // Shift returns undefined if empty, which is what we want
+      return this[kCache].shift()
     }
   }
 
-  _all (options, callback) {
+  async _all (options) {
     this[kFirst] = false
 
     // TODO: mixing next and all is not covered by test suite
@@ -190,14 +192,13 @@ class Iterator extends AbstractIterator {
     const size = this.limit - this.count - cache.length
 
     if (size <= 0) {
-      return this.nextTick(callback, null, cache)
+      return cache
     }
 
-    this._nextv(size, emptyOptions, (err, entries) => {
-      if (err) return callback(err)
-      if (cache.length > 0) entries = cache.concat(entries)
-      callback(null, entries)
-    })
+    let entries = await this._nextv(size, emptyOptions)
+    if (cache.length > 0) entries = cache.concat(entries)
+
+    return entries
   }
 
   _seek (target, options) {

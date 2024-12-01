@@ -8,9 +8,7 @@
   "types": "./index.d.ts",
   "scripts": {
     "test": "standard && hallmark && airtap --coverage test/index.js && nyc report",
-    "coverage": "nyc report -r lcovonly",
-    "dependency-check": "dependency-check --no-dev .",
-    "prepublishOnly": "npm run dependency-check"
+    "coverage": "nyc report -r lcovonly"
   },
   "files": [
     "index.js",
@@ -21,16 +19,13 @@
     "UPGRADING.md"
   ],
   "dependencies": {
-    "abstract-level": "^1.0.2",
-    "catering": "^2.1.1",
-    "module-error": "^1.0.2",
-    "run-parallel-limit": "^1.1.0"
+    "abstract-level": "^2.0.1",
+    "module-error": "^1.0.2"
   },
   "devDependencies": {
     "@voxpelli/tsconfig": "^4.0.0",
     "airtap": "^5.0.0",
     "airtap-playwright": "^1.0.1",
-    "dependency-check": "^4.1.0",
     "hallmark": "^4.1.0",
     "nyc": "^15.0.0",
     "standard": "^17.0.0",

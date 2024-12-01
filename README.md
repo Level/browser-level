@@ -12,21 +12,6 @@
 [![Common Changelog](https://common-changelog.org/badge.svg)](https://common-changelog.org)
 [![Donate](https://img.shields.io/badge/donate-orange?logo=open-collective\&logoColor=fff)](https://opencollective.com/level)
 
-## Table of Contents
-
-<details><summary>Click to expand</summary>
-
-- [Usage](#usage)
-- [API](#api)
-  - [`db = new BrowserLevel(location[, options])`](#db--new-browserlevellocation-options)
-  - [`BrowserLevel.destroy(location[, prefix][, callback])`](#browserleveldestroylocation-prefix-callback)
-- [Install](#install)
-- [Contributing](#contributing)
-- [Donate](#donate)
-- [License](#license)
-
-</details>
-
 ## Usage
 
 ```js
@@ -92,9 +77,9 @@ Besides `abstract-level` options, the optional `options` argument may contain:
 
 See [`IDBFactory#open()`](https://developer.mozilla.org/en-US/docs/Web/API/IDBFactory/open) for more details about database name and version.
 
-### `BrowserLevel.destroy(location[, prefix][, callback])`
+### `BrowserLevel.destroy(location[, prefix])`
 
-Delete the IndexedDB database at the given `location`. If `prefix` is not given, it defaults to the same value as the `BrowserLevel` constructor does. The `callback` function will be called when the destroy operation is complete, with a possible error argument. If no callback is provided, a promise is returned. This method is an additional method that is not part of the [`abstract-level`](https://github.com/Level/abstract-level) interface.
+Delete the IndexedDB database at the given `location`. Returns a promise. If `prefix` is not given, it defaults to the same value as the `BrowserLevel` constructor does. This method is an additional method that is not part of the [`abstract-level`](https://github.com/Level/abstract-level) interface.
 
 Before calling `destroy()`, close a database if it's using the same `location` and `prefix`:
 

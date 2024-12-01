@@ -2,6 +2,10 @@
 
 This document describes breaking changes and how to upgrade. For a complete list of changes including minor and patch releases, please refer to the [changelog](CHANGELOG.md).
 
+## 2.0.0
+
+This release upgrades to `abstract-level` 2 which adds [hooks](https://github.com/Level/abstract-level#hooks) and drops callbacks and not-found errors. Please refer to the [upgrade guide of `abstract-level`](https://github.com/Level/abstract-level/blob/v2.0.0/UPGRADING.md) for details.
+
 ## 1.0.0
 
 **Introducing `browser-level`: a fork of [`level-js`](https://github.com/Level/level-js) that removes the need for [`levelup`](https://github.com/Level/levelup) and more. It implements the [`abstract-level`](https://github.com/Level/abstract-level) interface instead of [`abstract-leveldown`](https://github.com/Level/abstract-leveldown) and thus has the same API as `level` and `levelup` including encodings, promises and events. In addition, you can now choose to use Uint8Array instead of Buffer. Sublevels are builtin.**
