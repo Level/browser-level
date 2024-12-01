@@ -6,7 +6,7 @@
 
 [![level badge][level-badge]][awesome]
 [![npm](https://img.shields.io/npm/v/browser-level.svg)](https://www.npmjs.com/package/browser-level)
-[![Test](https://img.shields.io/github/workflow/status/Level/browser-level/Test?label=test)](https://github.com/Level/browser-level/actions/workflows/test.yml)
+[![Test](https://img.shields.io/github/actions/workflow/status/Level/browser-level/test.yml?branch=main\&label=test)](https://github.com/Level/browser-level/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/Level/browser-level?label=\&logo=codecov\&logoColor=fff)](https://codecov.io/gh/Level/browser-level)
 [![Standard](https://img.shields.io/badge/standard-informational?logo=javascript\&logoColor=fff)](https://standardjs.com)
 [![Common Changelog](https://common-changelog.org/badge.svg)](https://common-changelog.org)
