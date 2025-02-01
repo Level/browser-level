@@ -22,7 +22,7 @@
     "abstract-level": "^2.0.1"
   },
   "devDependencies": {
-    "@voxpelli/tsconfig": "^4.0.0",
+    "@voxpelli/tsconfig": "^15.1.1",
     "airtap": "^5.0.0",
     "airtap-playwright": "^1.0.1",
     "hallmark": "^4.1.0",
