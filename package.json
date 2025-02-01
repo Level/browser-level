@@ -19,7 +19,7 @@
     "UPGRADING.md"
   ],
   "dependencies": {
-    "abstract-level": "^2.0.1"
+    "abstract-level": "^3.0.1"
   },
   "devDependencies": {
     "@voxpelli/tsconfig": "^4.0.0",
