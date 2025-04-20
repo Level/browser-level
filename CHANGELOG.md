@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.0.0] - 2025-04-20
+
+_If you are upgrading: please see [`UPGRADING.md`](UPGRADING.md)._
+
+### Changed
+
+- **Breaking:** upgrade to `abstract-level` 3 ([#24](https://github.com/Level/browser-level/issues/24)) ([`26adf16`](https://github.com/Level/browser-level/commit/26adf16)) (Vincent Weevers)
+
+### Added
+
+- Implement `has()` and `hasMany()` ([#25](https://github.com/Level/browser-level/issues/25)) ([`40b1881`](https://github.com/Level/browser-level/commit/40b1881)) (Vincent Weevers)
+
 ## [2.0.0] - 2024-12-01
 
 _If you are upgrading: please see [`UPGRADING.md`](UPGRADING.md)._
@@ -22,6 +34,8 @@ _If you are upgrading: please see [`UPGRADING.md`](UPGRADING.md)._
 ## [1.0.0] - 2022-03-05
 
 _:seedling: Initial release. If you are upgrading from `level-js`, please see [UPGRADING.md](UPGRADING.md)._
+
+[3.0.0]: https://github.com/Level/browser-level/releases/tag/v3.0.0
 
 [2.0.0]: https://github.com/Level/browser-level/releases/tag/v2.0.0
 
