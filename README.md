@@ -37,7 +37,7 @@ for await (const [key, value] of db.iterator({ gt: 'a' })) {
 
 ## API
 
-The API of `browser-level` follows that of [`abstract-level`](https://github.com/Level/abstract-level) with just two additional constructor options (see below) and one additional method (see below). As such, the majority of the API is documented in `abstract-level`. The `createIfMissing` and `errorIfExists` options of `abstract-level` are not supported here.
+The API of `browser-level` follows that of [`abstract-level`](https://github.com/Level/abstract-level) with just two additional constructor options (see below) and one additional method (see below). As such, the majority of the API is documented in `abstract-level`. The `db.getSync()` method is not supported here and neither are the `createIfMissing` and `errorIfExists` options.
 
 Like other implementations of `abstract-level`, `browser-level` has first-class support of binary keys and values, using either [Uint8Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array) or [Buffer](https://nodejs.org/api/buffer.html). In order to sort string and binary keys the same way as other databases, `browser-level` internally converts data to a Uint8Array before passing them to IndexedDB. If you have no need to work with `Buffer` keys or values, you can choose to omit the [`buffer`](https://github.com/feross/buffer) shim from a JavaScript bundle (through configuration of Webpack, Browserify or other bundlers).
 
