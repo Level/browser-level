@@ -2,6 +2,10 @@
 
 This document describes breaking changes and how to upgrade. For a complete list of changes including minor and patch releases, please refer to the [changelog](CHANGELOG.md).
 
+## 3.0.0
+
+This release upgrades to `abstract-level` 3. Please see its [upgrade guide](https://github.com/Level/abstract-level/blob/v3.0.0/UPGRADING.md).
+
 ## 2.0.0
 
 This release upgrades to `abstract-level` 2 which adds [hooks](https://github.com/Level/abstract-level#hooks) and drops callbacks and not-found errors. Please refer to the [upgrade guide of `abstract-level`](https://github.com/Level/abstract-level/blob/v2.0.0/UPGRADING.md) for details.
