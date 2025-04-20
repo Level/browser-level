@@ -27,7 +27,9 @@ class BrowserLevel extends AbstractLevel {
       snapshots: false,
       createIfMissing: false,
       errorIfExists: false,
-      seek: true
+      seek: true,
+      has: true,
+      getSync: false
     }, forward)
 
     if (typeof location !== 'string' || location === '') {
@@ -158,6 +160,60 @@ class BrowserLevel extends AbstractLevel {
 
     await Promise.allSettled(bees)
     return values
+  }
+
+  async _has (key, options) {
+    const store = this[kStore]('readonly')
+    const request = store.count(key)
+    const count = await this[kOnComplete](request)
+
+    return count === 1
+  }
+
+  async _hasMany (keys, options) {
+    const store = this[kStore]('readonly')
+    const iterator = keys.values()
+
+    // Consume the iterator with N parallel worker bees
+    const n = Math.min(16, keys.length)
+    const bees = new Array(n)
+    const results = new Array(keys.length)
+
+    let keyIndex = 0
+    let abort = false
+
+    const bee = async function () {
+      try {
+        for (const key of iterator) {
+          if (abort) break
+
+          const resultIndex = keyIndex++
+          const request = store.count(key)
+
+          await new Promise(function (resolve, reject) {
+            request.onsuccess = () => {
+              results[resultIndex] = request.result === 1
+              resolve()
+            }
+
+            request.onerror = (ev) => {
+              ev.stopPropagation()
+              reject(request.error)
+            }
+          })
+        }
+      } catch (err) {
+        abort = true
+        throw err
+      }
+    }
+
+    for (let i = 0; i < n; i++) {
+      bees[i] = bee()
+    }
+
+    await Promise.allSettled(bees)
+    return results
   }
 
   async _del (key, options) {
