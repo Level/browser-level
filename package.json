@@ -19,12 +19,14 @@
     "UPGRADING.md"
   ],
   "dependencies": {
-    "abstract-level": "^2.0.1"
+    "abstract-level": "^3.1.0"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.26.9",
     "@voxpelli/tsconfig": "^4.0.0",
     "airtap": "^5.0.0",
     "airtap-playwright": "^1.0.1",
+    "babelify": "^10.0.0",
     "hallmark": "^4.1.0",
     "nyc": "^15.0.0",
     "standard": "^17.0.0",

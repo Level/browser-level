@@ -4,3 +4,9 @@ providers:
 browsers:
   - name: chromium
   - name: firefox
+
+# Until airtap switches to rollup
+browserify:
+  - transform: babelify
+    global: true
+    presets: ["@babel/preset-env"]
