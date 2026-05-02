@@ -7,6 +7,11 @@ updates:
     ignore:
       - dependency-name: dependency-check
       - dependency-name: uuid
+      - dependency-name: standard
+      - dependency-name: typescript
+      - dependency-name: hallmark
+      - dependency-name: "@voxpelli/tsconfig"
+      - dependency-name: "@babel/preset-env"
   - package-ecosystem: github-actions
     directory: /
     schedule:
